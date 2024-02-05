@@ -2550,9 +2550,9 @@ if test "$have_getrandom" = "yes" ; then
   echo "CONFIG_GETRANDOM=y" >> $config_host_mak
 fi
 
-if test "$have_pthread_jit_protect" = "yes" ; then
-  echo "HAVE_PTHREAD_JIT_PROTECT=y" >> $config_host_mak
-fi
+#if test "$have_pthread_jit_protect" = "yes" ; then
+#  echo "HAVE_PTHREAD_JIT_PROTECT=y" >> $config_host_mak
+#fi
 
 if test "$have_sprr" = "yes" ; then
   echo "HAVE_SPRR=y" >> $config_host_mak
