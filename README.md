@@ -1,3 +1,9 @@
+# Unicorn Engine with TCTI
+
+A fork of unicorn that uses [TCTI](https://github.com/tctiSH/qemu/blob/with_tcti_vectors/tcg/aarch64-tcti/README.md) as TCG backend, so it can emulate aarch64 machine code without JIT support
+
+(experimental, use it at your own risk)
+
 Unicorn Engine
 ==============
 
