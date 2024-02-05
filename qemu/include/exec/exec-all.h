@@ -392,13 +392,8 @@ void tb_exec_lock(TCGContext*);
 void tb_exec_unlock(TCGContext*);
 
 /* GETPC is the true target of the return instruction that we'll execute.  */
-#ifdef _MSC_VER
-#include <intrin.h>
-# define GETPC() (uintptr_t)_ReturnAddress()
-#else
-# define GETPC() \
-    ((uintptr_t)__builtin_extract_return_addr(__builtin_return_address(0)))
-#endif
+extern __thread uintptr_t tcti_call_return_address;
+#define GETPC() tcti_call_return_address
 
 /* The true return address will often point to a host insn that is part of
    the next translated guest insn.  Adjust the address backward to point to
