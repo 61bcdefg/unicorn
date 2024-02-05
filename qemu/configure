@@ -2136,17 +2136,17 @@ fi
 ##########################################
 # check for Apple Silicon JIT function
 
-if [ "$darwin" = "yes" ] ; then
-  cat > $TMPC << EOF
-#include <pthread.h>
-int main() { pthread_jit_write_protect_np(0); return 0; }
-EOF
-  if ! compile_prog ""; then
-    have_pthread_jit_protect='no'
-  else
-    have_pthread_jit_protect='yes'
-  fi
-fi
+#if [ "$darwin" = "yes" ] ; then
+#  cat > $TMPC << EOF
+##include <pthread.h>
+#int main() { pthread_jit_write_protect_np(0); return 0; }
+#EOF
+#  if ! compile_prog ""; then
+#    have_pthread_jit_protect='no'
+#  else
+#    have_pthread_jit_protect='yes'
+#  fi
+#fi
 
 ##########################################
 # End of CC checks
