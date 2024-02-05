@@ -4,6 +4,17 @@ A fork of unicorn that uses [TCTI](https://github.com/tctiSH/qemu/blob/with_tcti
 
 (experimental, use it at your own risk)
 
+## Build for iOS
+
+```
+cd qemu/tcg/aarch64-tcti && ./tcti-gadget-gen.py
+cd ../../../
+mkdir build
+cd build
+cmake .. -G Ninja -DCMAKE_BUILD_TYPE=MinSizeRel -DUNICORN_BUILD_TESTS=OFF -DUNICORN_INSTALL=OFF -DCMAKE_TOOLCHAIN_FILE=../cmake/ios.toolchain.cmake -DPLATFORM=OS64
+ninja -j8
+```
+
 Unicorn Engine
 ==============
 
