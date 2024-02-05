@@ -28,6 +28,7 @@
 
 #define TCTI_GADGET_IMMEDIATE_ARRAY_LEN 64
 
+#include "tcg/tcg.h"
 
 // Grab our gadget headers.
 #include "tcti_gadgets.h"
@@ -43,19 +44,45 @@
 
 /* Enable TCTI assertions only when debugging TCG (and without NDEBUG defined).
  * Without assertions, the interpreter runs much faster. */
-#if defined(CONFIG_DEBUG_TCG)
-# define tcti_assert(cond) assert(cond)
-#else
-# define tcti_assert(cond) ((void)0)
-#endif
+#define tcti_assert(cond) ((void)0)
 
 
 /********************************
  *  TCG Constraints Definitions *
  ********************************/
 
-static TCGConstraintSetIndex tcg_target_op_def(TCGOpcode op)
+static const TCGTargetOpDef *tcg_target_op_def(TCGOpcode op)
 {
+    static const TCGTargetOpDef r = { .args_ct_str = { "r" } };
+    static const TCGTargetOpDef r_r = { .args_ct_str = { "r", "r" } };
+    static const TCGTargetOpDef w_w = { .args_ct_str = { "w", "w" } };
+    static const TCGTargetOpDef w_r = { .args_ct_str = { "w", "r" } };
+    static const TCGTargetOpDef w_wr = { .args_ct_str = { "w", "wr" } };
+    static const TCGTargetOpDef r_l = { .args_ct_str = { "r", "l" } };
+    static const TCGTargetOpDef r_rA = { .args_ct_str = { "r", "rA" } };
+    static const TCGTargetOpDef rZ_r = { .args_ct_str = { "rZ", "r" } };
+    static const TCGTargetOpDef lZ_l = { .args_ct_str = { "lZ", "l" } };
+    static const TCGTargetOpDef r_r_r = { .args_ct_str = { "r", "r", "r" } };
+    static const TCGTargetOpDef w_w_w = { .args_ct_str = { "w", "w", "w" } };
+    static const TCGTargetOpDef w_w_wO = { .args_ct_str = { "w", "w", "wO" } };
+    static const TCGTargetOpDef w_w_wN = { .args_ct_str = { "w", "w", "wN" } };
+    static const TCGTargetOpDef w_w_wZ = { .args_ct_str = { "w", "w", "wZ" } };
+    static const TCGTargetOpDef r_r_ri = { .args_ct_str = { "r", "r", "ri" } };
+    static const TCGTargetOpDef r_r_rA = { .args_ct_str = { "r", "r", "rA" } };
+    static const TCGTargetOpDef r_r_rL = { .args_ct_str = { "r", "r", "rL" } };
+    static const TCGTargetOpDef r_r_rAL
+        = { .args_ct_str = { "r", "r", "rAL" } };
+    static const TCGTargetOpDef dep
+        = { .args_ct_str = { "r", "0", "rZ" } };
+    static const TCGTargetOpDef ext2
+        = { .args_ct_str = { "r", "rZ", "rZ" } };
+    static const TCGTargetOpDef movc
+        = { .args_ct_str = { "r", "r", "rA", "rZ", "rZ" } };
+    static const TCGTargetOpDef add2
+        = { .args_ct_str = { "r", "r", "rZ", "rZ", "rA", "rMZ" } };
+    static const TCGTargetOpDef w_w_w_w
+        = { .args_ct_str = { "w", "w", "w", "w" } };
+
     switch (op) {
 
     case INDEX_op_ld8u_i32:
@@ -93,7 +120,7 @@ static TCGConstraintSetIndex tcg_target_op_def(TCGOpcode op)
     case INDEX_op_bswap64_i64:
     case INDEX_op_extrl_i64_i32:
     case INDEX_op_extrh_i64_i32:
-        return C_O1_I1(r, r);
+        return &r_r;
 
     case INDEX_op_st8_i32:
     case INDEX_op_st16_i32:
@@ -102,7 +129,7 @@ static TCGConstraintSetIndex tcg_target_op_def(TCGOpcode op)
     case INDEX_op_st16_i64:
     case INDEX_op_st32_i64:
     case INDEX_op_st_i64:
-        return C_O0_I2(r, r);
+        return &r_r;
 
     case INDEX_op_div_i32:
     case INDEX_op_div_i64:
@@ -150,18 +177,18 @@ static TCGConstraintSetIndex tcg_target_op_def(TCGOpcode op)
     case INDEX_op_clz_i64:
     case INDEX_op_ctz_i32:
     case INDEX_op_ctz_i64:
-        return C_O1_I2(r, r, r);
+        return &r_r_r;
 
     case INDEX_op_brcond_i32:
     case INDEX_op_brcond_i64:
-        return C_O0_I2(r, r);
+        return &r_r;
 
     case INDEX_op_qemu_ld_i32:
     case INDEX_op_qemu_ld_i64:
-        return C_O1_I2(r, r, r);
+        return &r_r_r;
     case INDEX_op_qemu_st_i32:
     case INDEX_op_qemu_st_i64:
-        return C_O0_I3(r, r, r);
+        return &r_r_r;
 
     //
     // Vector ops.
@@ -182,31 +209,31 @@ static TCGConstraintSetIndex tcg_target_op_def(TCGOpcode op)
     case INDEX_op_shrv_vec:
     case INDEX_op_sarv_vec:
     case INDEX_op_aa64_sshl_vec:
-        return C_O1_I2(w, w, w);
+        return &w_w_w;
     case INDEX_op_not_vec:
     case INDEX_op_neg_vec:
     case INDEX_op_abs_vec:
     case INDEX_op_shli_vec:
     case INDEX_op_shri_vec:
     case INDEX_op_sari_vec:
-        return C_O1_I1(w, w);
+        return &w_w;
     case INDEX_op_ld_vec:
     case INDEX_op_dupm_vec:
-        return C_O1_I1(w, r);
+        return &w_r;
     case INDEX_op_st_vec:
-        return C_O0_I2(w, r);
+        return &w_r;
     case INDEX_op_dup_vec:
-        return C_O1_I1(w, wr);
+        return &w_wr;
     case INDEX_op_or_vec:
     case INDEX_op_andc_vec:
-        return C_O1_I2(w, w, w);
+        return &w_w_w;
     case INDEX_op_and_vec:
     case INDEX_op_orc_vec:
-        return C_O1_I2(w, w, w);
+        return &w_w_w;
     case INDEX_op_cmp_vec:
-        return C_O1_I2(w, w, w);
+        return &w_w_w;
     case INDEX_op_bitsel_vec:
-        return C_O1_I3(w, w, w, w);
+        return &w_w_w_w;
 
     default:
         g_assert_not_reached();
@@ -386,16 +413,6 @@ static bool patch_reloc(tcg_insn_unit *code_ptr, int type,
     return true;
 }
 
-#if defined(CONFIG_DEBUG_TCG_INTERPRETER)
-/* Show current bytecode. Used by tcg interpreter. */
-void tci_disas(uint8_t opc)
-{
-    const TCGOpDef *def = &tcg_op_defs[opc];
-    fprintf(stderr, "TCG %s %u, %u, %u\n",
-            def->name, def->nb_oargs, def->nb_iargs, def->nb_cargs);
-}
-#endif
-
 /* Write value (native size). */
 static void tcg_out_immediate(TCGContext *s, tcg_target_ulong v)
 {
@@ -407,13 +424,13 @@ static void tcg_out_immediate(TCGContext *s, tcg_target_ulong v)
     }
 }
 
-void tb_target_set_jmp_target(uintptr_t tc_ptr, uintptr_t jmp_rx, uintptr_t jmp_rw, uintptr_t addr)
+void tb_target_set_jmp_target(uintptr_t tc_ptr, uintptr_t jmp_rw, uintptr_t addr)
 {
     /* Get a pointer to our immediate, which exists after a single pointer. */
     uintptr_t immediate_addr = jmp_rw;
 
     /* Patch it to be match our target address. */
-    qatomic_set((uint64_t *)immediate_addr, addr);
+    atomic_set((uint64_t *)immediate_addr, addr);
 }
 
 
@@ -421,36 +438,36 @@ void tb_target_set_jmp_target(uintptr_t tc_ptr, uintptr_t jmp_rx, uintptr_t jmp_
  * TCTI Thunk Helpers
  */
 
-#ifdef CONFIG_SOFTMMU
+#if 1
 
 // TODO: relocate these prototypes?
-tcg_target_ulong helper_ret_ldub_mmu_signed(CPUArchState *env, target_ulong addr, TCGMemOpIdx oi, uintptr_t retaddr);
-tcg_target_ulong helper_le_lduw_mmu_signed(CPUArchState *env, target_ulong addr, TCGMemOpIdx oi, uintptr_t retaddr);
-tcg_target_ulong helper_le_ldul_mmu_signed(CPUArchState *env, target_ulong addr, TCGMemOpIdx oi, uintptr_t retaddr);
-tcg_target_ulong helper_be_lduw_mmu_signed(CPUArchState *env, target_ulong addr, TCGMemOpIdx oi, uintptr_t retaddr);
-tcg_target_ulong helper_be_ldul_mmu_signed(CPUArchState *env, target_ulong addr, TCGMemOpIdx oi, uintptr_t retaddr);
+tcg_target_ulong helper_ret_ldub_mmu_signed_aarch64(CPUArchState *env, target_ulong addr, TCGMemOpIdx oi, uintptr_t retaddr);
+tcg_target_ulong helper_le_lduw_mmu_signed_aarch64(CPUArchState *env, target_ulong addr, TCGMemOpIdx oi, uintptr_t retaddr);
+tcg_target_ulong helper_le_ldul_mmu_signed_aarch64(CPUArchState *env, target_ulong addr, TCGMemOpIdx oi, uintptr_t retaddr);
+tcg_target_ulong helper_be_lduw_mmu_signed_aarch64(CPUArchState *env, target_ulong addr, TCGMemOpIdx oi, uintptr_t retaddr);
+tcg_target_ulong helper_be_ldul_mmu_signed_aarch64(CPUArchState *env, target_ulong addr, TCGMemOpIdx oi, uintptr_t retaddr);
 
-tcg_target_ulong helper_ret_ldub_mmu_signed(CPUArchState *env, target_ulong addr, TCGMemOpIdx oi, uintptr_t retaddr)
+tcg_target_ulong helper_ret_ldub_mmu_signed_aarch64(CPUArchState *env, target_ulong addr, TCGMemOpIdx oi, uintptr_t retaddr)
 {
     return (int8_t)helper_ret_ldub_mmu(env, addr, oi, retaddr);
 }
 
-tcg_target_ulong helper_le_lduw_mmu_signed(CPUArchState *env, target_ulong addr, TCGMemOpIdx oi, uintptr_t retaddr)
+tcg_target_ulong helper_le_lduw_mmu_signed_aarch64(CPUArchState *env, target_ulong addr, TCGMemOpIdx oi, uintptr_t retaddr)
 {
     return (int16_t)helper_le_lduw_mmu(env, addr, oi, retaddr);
 }
 
-tcg_target_ulong helper_le_ldul_mmu_signed(CPUArchState *env, target_ulong addr, TCGMemOpIdx oi, uintptr_t retaddr)
+tcg_target_ulong helper_le_ldul_mmu_signed_aarch64(CPUArchState *env, target_ulong addr, TCGMemOpIdx oi, uintptr_t retaddr)
 {
     return (int32_t)helper_le_ldul_mmu(env, addr, oi, retaddr);
 }
 
-tcg_target_ulong helper_be_lduw_mmu_signed(CPUArchState *env, target_ulong addr, TCGMemOpIdx oi, uintptr_t retaddr)
+tcg_target_ulong helper_be_lduw_mmu_signed_aarch64(CPUArchState *env, target_ulong addr, TCGMemOpIdx oi, uintptr_t retaddr)
 {
     return (int16_t)helper_be_lduw_mmu(env, addr, oi, retaddr);
 }
 
-tcg_target_ulong helper_be_ldul_mmu_signed(CPUArchState *env, target_ulong addr, TCGMemOpIdx oi, uintptr_t retaddr)
+tcg_target_ulong helper_be_ldul_mmu_signed_aarch64(CPUArchState *env, target_ulong addr, TCGMemOpIdx oi, uintptr_t retaddr)
 {
     return (int32_t)helper_be_ldul_mmu(env, addr, oi, retaddr);
 }
@@ -709,7 +726,7 @@ static void tcg_out_movi(TCGContext *s, TCGType type, TCGReg t0, tcg_target_long
 /**
  * Generate a CALL.
  */
-static inline void tcg_out_call(TCGContext *s, const tcg_insn_unit *arg)
+static inline void tcg_out_call(TCGContext *s, tcg_insn_unit *arg)
 {
     tcg_out_gadget(s, gadget_call);
     tcg_out64(s, (uintptr_t)arg);
@@ -1717,7 +1734,7 @@ static void tcg_out_vec_op(TCGContext *s, TCGOpcode opc, unsigned vecl, unsigned
 }
 
 
-int tcg_can_emit_vec_op(TCGOpcode opc, TCGType type, unsigned vece)
+int tcg_can_emit_vec_op(TCGContext *tcg_ctx, TCGOpcode opc, TCGType type, unsigned vece)
 {
     switch (opc) {
     case INDEX_op_add_vec:
@@ -1738,11 +1755,11 @@ int tcg_can_emit_vec_op(TCGOpcode opc, TCGType type, unsigned vece)
     case INDEX_op_shlv_vec:
     case INDEX_op_bitsel_vec:
         return 1;
-    case INDEX_op_rotli_vec:
+    //case INDEX_op_rotli_vec:
     case INDEX_op_shrv_vec:
     case INDEX_op_sarv_vec:
-    case INDEX_op_rotlv_vec:
-    case INDEX_op_rotrv_vec:
+    //case INDEX_op_rotlv_vec:
+    //case INDEX_op_rotrv_vec:
         return -1;
     case INDEX_op_mul_vec:
     case INDEX_op_smax_vec:
@@ -1756,7 +1773,7 @@ int tcg_can_emit_vec_op(TCGOpcode opc, TCGType type, unsigned vece)
     }
 }
 
-void tcg_expand_vec_op(TCGOpcode opc, TCGType type, unsigned vece,
+void tcg_expand_vec_op(TCGContext *tcg_ctx, TCGOpcode opc, TCGType type, unsigned vece,
                        TCGArg a0, ...)
 {
     va_list va;
@@ -1765,8 +1782,8 @@ void tcg_expand_vec_op(TCGOpcode opc, TCGType type, unsigned vece,
 
 
     va_start(va, a0);
-    v0 = temp_tcgv_vec(arg_temp(a0));
-    v1 = temp_tcgv_vec(arg_temp(va_arg(va, TCGArg)));
+    v0 = temp_tcgv_vec(tcg_ctx, arg_temp(a0));
+    v1 = temp_tcgv_vec(tcg_ctx, arg_temp(va_arg(va, TCGArg)));
     a2 = va_arg(va, TCGArg);
     va_end(va);
 
@@ -1774,38 +1791,36 @@ void tcg_expand_vec_op(TCGOpcode opc, TCGType type, unsigned vece,
     case INDEX_op_shrv_vec:
     case INDEX_op_sarv_vec:
         /* Right shifts are negative left shifts for AArch64.  */
-        v2 = temp_tcgv_vec(arg_temp(a2));
-        t1 = tcg_temp_new_vec(type);
-        tcg_gen_neg_vec(vece, t1, v2);
+        v2 = temp_tcgv_vec(tcg_ctx, arg_temp(a2));
+        t1 = tcg_temp_new_vec(tcg_ctx, type);
+        tcg_gen_neg_vec(tcg_ctx, vece, t1, v2);
         opc = (opc == INDEX_op_shrv_vec
                ? INDEX_op_shlv_vec : INDEX_op_aa64_sshl_vec);
-        vec_gen_3(opc, type, vece, tcgv_vec_arg(v0),
-                  tcgv_vec_arg(v1), tcgv_vec_arg(t1));
-        tcg_temp_free_vec(t1);
+        vec_gen_3(tcg_ctx, opc, type, vece, tcgv_vec_arg(tcg_ctx, v0),
+                  tcgv_vec_arg(tcg_ctx, v1), tcgv_vec_arg(tcg_ctx, t1));
+        tcg_temp_free_vec(tcg_ctx, t1);
         break;
 
-    case INDEX_op_rotlv_vec:
+    /*case INDEX_op_rotlv_vec:
         v2 = temp_tcgv_vec(arg_temp(a2));
         t1 = tcg_temp_new_vec(type);
         c1 = tcg_constant_vec(type, vece, 8 << vece);
         tcg_gen_sub_vec(vece, t1, v2, c1);
-        /* Right shifts are negative left shifts for AArch64.  */
         vec_gen_3(INDEX_op_shlv_vec, type, vece, tcgv_vec_arg(t1),
                   tcgv_vec_arg(v1), tcgv_vec_arg(t1));
         vec_gen_3(INDEX_op_shlv_vec, type, vece, tcgv_vec_arg(v0),
                   tcgv_vec_arg(v1), tcgv_vec_arg(v2));
         tcg_gen_or_vec(vece, v0, v0, t1);
         tcg_temp_free_vec(t1);
-        break;
+        break;*/
 
-    case INDEX_op_rotrv_vec:
+    /*case INDEX_op_rotrv_vec:
         v2 = temp_tcgv_vec(arg_temp(a2));
         t1 = tcg_temp_new_vec(type);
         t2 = tcg_temp_new_vec(type);
         c1 = tcg_constant_vec(type, vece, 8 << vece);
         tcg_gen_neg_vec(vece, t1, v2);
         tcg_gen_sub_vec(vece, t2, c1, v2);
-        /* Right shifts are negative left shifts for AArch64.  */
         vec_gen_3(INDEX_op_shlv_vec, type, vece, tcgv_vec_arg(t1),
                   tcgv_vec_arg(v1), tcgv_vec_arg(t1));
         vec_gen_3(INDEX_op_shlv_vec, type, vece, tcgv_vec_arg(t2),
@@ -1813,7 +1828,7 @@ void tcg_expand_vec_op(TCGOpcode opc, TCGType type, unsigned vece,
         tcg_gen_or_vec(vece, v0, t1, t2);
         tcg_temp_free_vec(t1);
         tcg_temp_free_vec(t2);
-        break;
+        break;*/
 
     default:
         g_assert_not_reached();
@@ -1927,15 +1942,15 @@ static bool tcg_out_optimized_dupi_vec(TCGContext *s, TCGType type, unsigned vec
 
 
 /* Emits instructions that can load an immediate into a vector. */
-static void tcg_out_dupi_vec(TCGContext *s, TCGType type, unsigned vece, TCGReg rd, int64_t v64)
+static void tcg_out_dupi_vec(TCGContext *s, TCGType type, TCGReg rd, int64_t v64)
 {
     // Convert Rd into a simple gadget number.
     rd = rd - (TCG_REG_V16);
 
     // First, try to create an optimized implementation, if possible.
-    if (tcg_out_optimized_dupi_vec(s, type, vece, rd, v64)) {
-        return;
-    }
+    //if (tcg_out_optimized_dupi_vec(s, type, vece, rd, v64)) {
+    //    return;
+    //}
 
     // If we didn't, we'll need to load the full vector from memory.
     // Emit it into our bytecode stream as an immediate; which we'll then
@@ -1986,13 +2001,13 @@ static bool tcg_out_dupm_vec(TCGContext *s, TCGType type, unsigned vece, TCGReg 
 static void tcg_target_init(TCGContext *s)
 {
     /* The current code uses uint8_t for tcg operations. */
-    tcg_debug_assert(tcg_op_defs_max <= UINT8_MAX);
+    //tcg_debug_assert(tcg_op_defs_max <= UINT8_MAX);
 
     // Registers available for each type of operation.
-    tcg_target_available_regs[TCG_TYPE_I32]  = TCG_MASK_GP_REGISTERS;
-    tcg_target_available_regs[TCG_TYPE_I64]  = TCG_MASK_GP_REGISTERS;
-    tcg_target_available_regs[TCG_TYPE_V64]  = TCG_MASK_VECTOR_REGISTERS;
-    tcg_target_available_regs[TCG_TYPE_V128] = TCG_MASK_VECTOR_REGISTERS;
+    s->tcg_target_available_regs[TCG_TYPE_I32]  = TCG_MASK_GP_REGISTERS;
+    s->tcg_target_available_regs[TCG_TYPE_I64]  = TCG_MASK_GP_REGISTERS;
+    s->tcg_target_available_regs[TCG_TYPE_V64]  = TCG_MASK_VECTOR_REGISTERS;
+    s->tcg_target_available_regs[TCG_TYPE_V128] = TCG_MASK_VECTOR_REGISTERS;
 
     TCGReg unclobbered_registers[] = {
         // We don't use registers R16+ in our runtime, so we'll not bother protecting them.
@@ -2007,9 +2022,9 @@ static void tcg_target_init(TCGContext *s)
    };
 
     // Specify which registers are clobbered during call.
-    tcg_target_call_clobber_regs = -1ull;
+    s->tcg_target_call_clobber_regs = -1ull;
     for (unsigned i = 0; i < ARRAY_SIZE(unclobbered_registers); ++i) {
-        tcg_regset_reset_reg(tcg_target_call_clobber_regs, unclobbered_registers[i]);
+        tcg_regset_reset_reg(s->tcg_target_call_clobber_regs, unclobbered_registers[i]);
     }
 
     // Specify which local registers we're reserving.
@@ -2030,7 +2045,6 @@ static inline void tcg_target_qemu_prologue(TCGContext *s)
     // No prologue; as we're interpreted.
 }
 
-
 /**
  * TCTI 'interpreter' bootstrap.
  */
@@ -2039,7 +2053,7 @@ static inline void tcg_target_qemu_prologue(TCGContext *s)
 __thread uintptr_t tcti_call_return_address;
 
 /* Dispatch the bytecode stream contained in our translation buffer. */
-uintptr_t QEMU_DISABLE_CFI tcg_qemu_tb_exec(CPUArchState *env, const void *v_tb_ptr)
+uintptr_t tcg_qemu_tb_exec(CPUArchState *env, uint8_t *v_tb_ptr)
 {
     // Create our per-CPU temporary storage.
     long tcg_temps[CPU_TEMP_BUF_NLONGS];
@@ -2091,48 +2105,50 @@ uintptr_t QEMU_DISABLE_CFI tcg_qemu_tb_exec(CPUArchState *env, const void *v_tb_
 }
 
 
-/**
- *  Disassembly output support.
- */
-#include <dlfcn.h>
+#define TCG_CT_CONST_AIMM 0x100
+#define TCG_CT_CONST_LIMM 0x200
+#define TCG_CT_CONST_ZERO 0x400
+#define TCG_CT_CONST_MONE 0x800
+#define TCG_CT_CONST_ORRI 0x1000
+#define TCG_CT_CONST_ANDI 0x2000
 
-
-/* Disassemble TCI bytecode. */
-int print_insn_tcti(bfd_vma addr, disassemble_info *info)
+/* parse target specific constraints */
+static const char *target_parse_constraint(TCGArgConstraint *ct,
+                                           const char *ct_str, TCGType type)
 {
-
-#ifdef TCTI_GADGET_RICH_DISASSEMBLY
-    Dl_info symbol_info = {};
-    char symbol_name[48] ;
-#endif
-
-    int status;
-    uint64_t block;
-
-    // Read the relevant pointer.
-    status = info->read_memory_func(addr, (void *)&block, sizeof(block), info);
-    if (status != 0) {
-        info->memory_error_func(status, addr, info);
-        return -1;
+    switch (*ct_str++) {
+    case 'r': /* general registers */
+        ct->ct |= TCG_CT_REG;
+        ct->u.regs |= 0xffffffffu;
+        break;
+    case 'w': /* advsimd registers */
+        ct->ct |= TCG_CT_REG;
+        ct->u.regs |= 0xffffffff00000000ull;
+        break;
+    case 'l': /* qemu_ld / qemu_st address, data_reg */
+        ct->ct |= TCG_CT_REG;
+        ct->u.regs = 0xffffffffu;
+        break;
+    case 'A': /* Valid for arithmetic immediate (positive or negative).  */
+        ct->ct |= TCG_CT_CONST_AIMM;
+        break;
+    case 'L': /* Valid for logical immediate.  */
+        ct->ct |= TCG_CT_CONST_LIMM;
+        break;
+    case 'M': /* minus one */
+        ct->ct |= TCG_CT_CONST_MONE;
+        break;
+    case 'O': /* vector orr/bic immediate */
+        ct->ct |= TCG_CT_CONST_ORRI;
+        break;
+    case 'N': /* vector orr/bic immediate, inverted */
+        ct->ct |= TCG_CT_CONST_ANDI;
+        break;
+    case 'Z': /* zero */
+        ct->ct |= TCG_CT_CONST_ZERO;
+        break;
+    default:
+        return NULL;
     }
-
-#ifdef TCTI_GADGET_RICH_DISASSEMBLY
-    // Most of our disassembly stream will be gadgets. Try to get their names, for nice output.
-    dladdr((void *)block, &symbol_info);
-
-    if(symbol_info.dli_sname != 0) {
-        strncpy(symbol_name, symbol_info.dli_sname, sizeof(symbol_name));
-        symbol_name[sizeof(symbol_name) - 1] = 0;
-        info->fprintf_func(info->stream, "%s", symbol_name);
-    } else {
-        info->fprintf_func(info->stream, "%016lx", block);
-    }
-
-#else
-    info->fprintf_func(info->stream, "%016lx", block);
-#endif
-
-    return sizeof(block);
+    return ct_str;
 }
-
-

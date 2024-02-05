@@ -247,9 +247,24 @@ typedef enum {
 // We'll need to enforce memory ordering with barriers.
 #define TCG_TARGET_DEFAULT_MO  (0)
 
-void tci_disas(uint8_t opc);
+#if defined(__APPLE__)
+#include <libkern/OSCacheControl.h>
+#endif
 
-void tb_target_set_jmp_target(uintptr_t, uintptr_t, uintptr_t, uintptr_t);
+static inline void flush_icache_range(uintptr_t start, uintptr_t stop)
+{
+#if defined(__APPLE__)
+    /* 
+     * On Intel-based Mac computers, this function does nothing.
+     * Source: https://developer.apple.com/documentation/apple_silicon/porting_just-in-time_compilers_to_apple_silicon?language=objc
+     */
+    sys_icache_invalidate((char *)start, stop - start);
+#else
+    __builtin___clear_cache((char *)start, (char *)stop);
+#endif
+}
+
+void tb_target_set_jmp_target(uintptr_t, uintptr_t, uintptr_t);
 
 
 #endif /* TCG_TARGET_H */
