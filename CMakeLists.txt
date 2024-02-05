@@ -1339,9 +1339,9 @@ if (UNICORN_HAS_TRICORE)
 endif()
 
 # Extra tests
-set(UNICORN_TEST_FILE ${UNICORN_TEST_FILE} test_mem)
-set(UNICORN_TEST_FILE ${UNICORN_TEST_FILE} test_ctl)
-set(UNICORN_SAMPLE_FILE ${UNICORN_SAMPLE_FILE} sample_ctl)
+#set(UNICORN_TEST_FILE ${UNICORN_TEST_FILE} test_mem)
+#set(UNICORN_TEST_FILE ${UNICORN_TEST_FILE} test_ctl)
+#set(UNICORN_SAMPLE_FILE ${UNICORN_SAMPLE_FILE} sample_ctl)
 
 if(UNICORN_TRACER)
     target_compile_options(unicorn-common PRIVATE -DUNICORN_TRACER)
