@@ -12,7 +12,7 @@ cd ../../../
 mkdir build
 cd build
 cmake .. -G Ninja -DCMAKE_BUILD_TYPE=MinSizeRel -DUNICORN_BUILD_TESTS=OFF -DUNICORN_INSTALL=OFF -DCMAKE_TOOLCHAIN_FILE=../cmake/ios.toolchain.cmake -DPLATFORM=OS64
-ninja -j8
+ninja
 ```
 
 Unicorn Engine
